@@ -1,1 +1,0 @@
-Example of how the structure should look like.

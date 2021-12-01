@@ -1,3 +1,0 @@
-train_list.txt
-val_list.txt
-test_list.txt
