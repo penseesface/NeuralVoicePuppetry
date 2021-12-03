@@ -19,3 +19,4 @@ Unet_train/options/base_options.py
 checkpoints/*
 *.pyc
 videorendered_finalcompose.mp4
+*.pth

@@ -46,4 +46,4 @@ if __name__ == '__main__':
         # cv2.waitKey()
         # cv2.destroyAllWindows()
 
-        Image.fromarray(result).save(f'media/transfer_render/{num[0]:04d}_render.jpg')
+        #Image.fromarray(result).save(f'media/transfer_render/{num[0]:04d}_render.jpg')

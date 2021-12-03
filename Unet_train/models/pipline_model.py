@@ -83,6 +83,8 @@ class piplinemodel(BaseModel):
         # optimizer
         self.loss_G_GAN = 0.0
 
+        print(self.gpu_ids)
+
         if self.isTrain:
             use_sigmoid = opt.no_lsgan
             self.netD = networks.define_D(opt.input_nc , opt.ndf, opt.netD, opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids)
@@ -123,9 +125,7 @@ class piplinemodel(BaseModel):
 
         result =util.tensor2im(self.background.clone())
 
-
-        Image.fromarray(result).save(f'media/background/bg.jpg')
-
+        # Image.fromarray(result).save(f'media/background/bg.jpg')
 
         self.fake = self.inpainter(self.rendered, self.background)
 

@@ -57,7 +57,7 @@ if __name__=='__main__':
 
     src_size = len(src_expression)
 
-    index_start = 81
+    index_start = 300
 
     target_info =  load_target(index_start,src_size+index_start,target)
 
