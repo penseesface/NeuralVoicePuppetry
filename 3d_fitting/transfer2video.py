@@ -144,20 +144,12 @@ if __name__=='__main__':
         #load landmark
 
         landmark = target_info[f'{ID:04d}'][2] 
-
         lmk_index = [2,3,4,5,6,7,8,9,10,11,12,13,14,29]
-
-
         landmark_select = landmark[lmk_index]
-
         mask = np.zeros((256,256,3))
-
         pts = landmark_select.reshape((-1,1,2))
-
         pts = np.array(pts,dtype=np.int32)
-
         mask = cv2.fillPoly(mask,[pts],(255,255,255))
-
         mask = transforms.ToTensor()(mask.astype(np.float32))
 
         # norm 
@@ -170,18 +162,14 @@ if __name__=='__main__':
 
         #rerender crop face
         fake = inpainter(TARGET,render,mask)
-
         fg = Inpainter.tensor2im(fake.clone())
         fg = fg[:,:,::-1]
 
 
         #debug
         _render_copy = ((render.permute(1,2,0)+1)/2*255).cpu().numpy()[:,:,::-1]
-
         _render_copy = _render_copy.astype(np.uint8)
-
         saved = np.ones((256,256*2,3),dtype=np.uint8)
-        
         saved[:,:256,:] = _render_copy
         saved[:,256:,:] = fg
 
