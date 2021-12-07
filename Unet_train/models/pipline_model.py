@@ -19,7 +19,7 @@ import cv2
 ################
 ###  HELPER  ###
 ################
-INVALID_UV = -1.0
+INVALID_UV = 0.0
 
 from models import networks
 from models.base_model import BaseModel
@@ -112,20 +112,26 @@ class piplinemodel(BaseModel):
     def set_input(self, input):
         self.target = input['TARGET'].to(self.device)
         self.rendered = input['rendered'].to(self.device)             
-
+        self.mask = input['mask'].to(self.device)
 
     def forward(self, alpha=1.0):
         # background        
-        mask = self.rendered[:,0:1,:,:]==INVALID_UV
+        # mask = self.rendered[:,0:1,:,:]==INVALID_UV
+        # mask = torch.cat([mask,mask,mask], 1)
 
-        mask = torch.cat([mask,mask,mask], 1)
+        mask = self.mask == INVALID_UV
+        #mask = mask.permute(0,3,1,2)
 
         self.background = torch.where(mask, self.target, torch.zeros_like(self.target))
 
+        self.rendered = torch.where(mask, torch.zeros_like(self.target), self.rendered)
 
-        result =util.tensor2im(self.background.clone())
+
+        # result =util.tensor2im(self.background.clone())
+        # rendered =util.tensor2im(self.rendered.clone())
 
         # Image.fromarray(result).save(f'media/background/bg.jpg')
+        # Image.fromarray(rendered).save(f'media/background/rendered.jpg')
 
         self.fake = self.inpainter(self.rendered, self.background)
 

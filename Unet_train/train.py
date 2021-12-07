@@ -23,7 +23,6 @@ if __name__ == '__main__':
     print('#training images = %d' % dataset_size)
 
 
-
     if opt.renderer != 'no_renderer':
         print('load renderer')
         model.loadModules(opt, opt.renderer, ['netD','netG'])

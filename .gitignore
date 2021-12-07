@@ -20,3 +20,4 @@ checkpoints/*
 *.pyc
 videorendered_finalcompose.mp4
 *.pth
+3d_fitting/inpainter/0082_lms_proj.pkl

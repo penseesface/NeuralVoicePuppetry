@@ -5,11 +5,13 @@ import torch
 import numpy as np
 from data.base_dataset import BaseDataset
 from PIL import Image
-
+import pickle as pkl
+import cv2
 
 def make_dataset(dir):
     images_render = []
     images_crop = []
+    landmarks = []
     ids = []
     assert os.path.isdir(dir), '%s is not a valid directory' % dir
     for root, _, fnames in sorted(os.walk(dir)):
@@ -32,7 +34,13 @@ def make_dataset(dir):
         images_crop.append(path)
     
 
-    return images_render,images_crop,ids
+    for id in ids:
+        fname=f'{id:04d}_lms_proj.pkl'
+        path = os.path.join(root, fname)
+        landmarks.append(path)
+    
+
+    return images_render,images_crop,ids,landmarks
 
 
 class Aligneddataset(BaseDataset):
@@ -45,7 +53,7 @@ class Aligneddataset(BaseDataset):
         self.root = opt.dataroot
         self.data_dir = os.path.join(opt.dataroot, opt.phase)
 
-        self.render_paths,self.crop_paths, self.ids  = make_dataset(self.data_dir)
+        self.render_paths,self.crop_paths, self.ids, self.landmarks  = make_dataset(self.data_dir)
 
         opt.nObjects = 1
         assert(opt.resize_or_crop == 'resize_and_crop')
@@ -69,9 +77,27 @@ class Aligneddataset(BaseDataset):
         img_array_render = np.asarray(Image.open(render_path))/255
         img_array_crop = np.asarray(Image.open(crop_path))/255
 
+        landmark = pkl.load(open(self.landmarks[index],'rb'))[0]
+        lmk_index = [2,3,4,5,6,7,8,9,10,11,12,13,14,29]
+
+
+        landmark_select = landmark[lmk_index]
+
+        mask = np.zeros((256,256,3))
+
+        pts = landmark_select.reshape((-1,1,2))
+
+        pts = np.array(pts,dtype=np.int32)
+
+        mask = cv2.fillPoly(mask,[pts],(255,255,255))
+
+        # cv2.imshow('',mask)
+        # cv2.waitKey()
+        # cv2.destroyAllWindows()
 
         TARGET = transforms.ToTensor()(img_array_crop.astype(np.float32))
         render = transforms.ToTensor()(img_array_render.astype(np.float32))
+        mask = transforms.ToTensor()(mask.astype(np.float32))
 
         TARGET = 2.0 * TARGET - 1.0
         render = 2.0 * render - 1.0
@@ -106,7 +132,7 @@ class Aligneddataset(BaseDataset):
 
         #################################
 
-        return {'TARGET': TARGET, 'rendered': render,'ID':ID}
+        return {'TARGET': TARGET, 'rendered': render,'ID':ID,'mask':mask}
 
     def __len__(self):
 

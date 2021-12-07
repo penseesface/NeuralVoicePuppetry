@@ -132,6 +132,7 @@ if __name__=='__main__':
         img2 = Image.fromarray(resized_face_img)
 
         if has_face:        
-            im.save(f"/home/allen/Documents/workplace/NeuralVoicePuppetry/media/framesJane_render/{img_name}_render.jpg")
-            img2.save(f"/home/allen/Documents/workplace/NeuralVoicePuppetry/media/framesJane_render/{img_name}_crop.jpg")
-            pickle.dump(coeffs, open(f'/home/allen/Documents/workplace/NeuralVoicePuppetry/media/framesJane_render/{img_name}_coeffs.pkl', 'wb'))
+            im.save(f"/home/allen/Documents/workplace/NeuralVoicePuppetry/media/frames_jane_render2/{img_name}_render.jpg")
+            img2.save(f"/home/allen/Documents/workplace/NeuralVoicePuppetry/media/frames_jane_render2/{img_name}_crop.jpg")
+            pickle.dump(coeffs, open(f'/home/allen/Documents/workplace/NeuralVoicePuppetry/media/frames_jane_render2/{img_name}_coeffs.pkl', 'wb'))
+            pickle.dump(lms_proj, open(f'/home/allen/Documents/workplace/NeuralVoicePuppetry/media/frames_jane_render2/{img_name}_lms_proj.pkl', 'wb'))
