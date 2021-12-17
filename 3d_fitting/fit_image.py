@@ -25,22 +25,39 @@ def process_img(img, fa, mtcnn, device, args):
     recon_model = get_recon_model(model=args.recon_model, device=device, batch_size=1, img_size=args.tar_size)
     
     img_arr = img[:, :, ::-1]
-    orig_h, orig_w = img_arr.shape[:2]
-    bboxes, probs = mtcnn.detect(img_arr)
-    if bboxes is None:
-        return False, 0, 0
-    if len(bboxes) == 0:
-        return False, 0, 0
-    bbox = utils.pad_bbox(bboxes[0], (orig_w, orig_h), args.padding_ratio)
-    face_w = bbox[2] - bbox[0]
-    face_h = bbox[3] - bbox[1]
-    face_img = img_arr[bbox[1] : bbox[3], bbox[0] : bbox[2], :]
-    resized_face_img = cv2.resize(face_img, (args.tar_size, args.tar_size))
+    # orig_h, orig_w = img_arr.shape[:2]
+    # bboxes, probs = mtcnn.detect(img_arr)
+    # if bboxes is None:
+    #     return False, 0, 0
+    # if len(bboxes) == 0:
+    #     return False, 0, 0
+    # bbox = utils.pad_bbox(bboxes[0], (orig_w, orig_h), args.padding_ratio)
+    # face_w = bbox[2] - bbox[0]
+    # face_h = bbox[3] - bbox[1]
+    # face_img = img_arr[bbox[1] : bbox[3], bbox[0] : bbox[2], :]
+    
+    # #resized_face_img = cv2.resize(face_img, (args.tar_size, args.tar_size))
+
+    resized_face_img = cv2.resize(img_arr, (args.tar_size, args.tar_size))
+    
     try:
         lms = fa.get_landmarks_from_image(resized_face_img)[0]
     except:
         return False, 0, 0
     lms = lms[:, :2][None, ...]
+
+
+    img_show = resized_face_img.copy()
+
+    # print(lms)
+    # for point in lms[0]:
+    #     cv2.circle(img_show,(int(point[0]),int(point[1])),2,(255,255,0),1)
+    
+    # cv2.imshow('img_show',img_show)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+
+
     lms = torch.tensor(lms, dtype=torch.float32, device=device)
     img_tensor = torch.tensor(
         resized_face_img[None, ...], dtype=torch.float32, device=device)
@@ -111,19 +128,20 @@ if __name__=='__main__':
 
     device = 'cuda:0'
 
-
     mtcnn = MTCNN(select_largest=False, device=device)
 
+    #fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device=device)
     fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._3D, flip_input=False, device=device)
-    dst = '/home/allen/Documents/workplace/NeuralVoicePuppetry/media/frame_src_uvdata'
 
+    src = 'media/frames_obama4'
+    dst = 'media/frames_obama4_fit_gt2/train'
 
     #for index in range(len(os.listdir('/home/allen/Documents/workplace/NeuralVoicePuppetry/media/frame_src'))):
-    for index in range(81,5864):
+    for index in range(len(os.listdir(src))):
 
         img_name = f'{index:04d}'
 
-        im = cv2.imread(f'/home/allen/Documents/workplace/NeuralVoicePuppetry/media/frames_jane/{img_name}.jpg')
+        im = cv2.imread(f'{src}/{img_name}.jpg')
 
         has_face, render_img ,resized_face_img ,coeffs,lms_proj = process_img(im, fa, mtcnn, device, args)
 
@@ -132,7 +150,9 @@ if __name__=='__main__':
         img2 = Image.fromarray(resized_face_img)
 
         if has_face:        
-            im.save(f"/home/allen/Documents/workplace/NeuralVoicePuppetry/media/frames_jane_render2/{img_name}_render.jpg")
-            img2.save(f"/home/allen/Documents/workplace/NeuralVoicePuppetry/media/frames_jane_render2/{img_name}_crop.jpg")
-            pickle.dump(coeffs, open(f'/home/allen/Documents/workplace/NeuralVoicePuppetry/media/frames_jane_render2/{img_name}_coeffs.pkl', 'wb'))
-            pickle.dump(lms_proj, open(f'/home/allen/Documents/workplace/NeuralVoicePuppetry/media/frames_jane_render2/{img_name}_lms_proj.pkl', 'wb'))
+            im.save(f"{dst}/{img_name}_render.jpg")
+            img2.save(f"{dst}/{img_name}_crop.jpg")
+            pickle.dump(coeffs, open(f'{dst}/{img_name}_coeffs.pkl', 'wb'))
+            pickle.dump(lms_proj, open(f'{dst}/{img_name}_lms_proj.pkl', 'wb'))
+
+        

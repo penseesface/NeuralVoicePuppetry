@@ -69,8 +69,8 @@ class Aligneddataset(BaseDataset):
         crop_path = self.crop_paths[index]
 
         # default image dimensions
-        IMG_DIM_X = 256
-        IMG_DIM_Y = 256
+        IMG_DIM_X = 512
+        IMG_DIM_Y = 512
 
         # load image data
  
@@ -78,12 +78,12 @@ class Aligneddataset(BaseDataset):
         img_array_crop = np.asarray(Image.open(crop_path))/255
 
         landmark = pkl.load(open(self.landmarks[index],'rb'))[0]
-        lmk_index = [2,3,4,5,6,7,8,9,10,11,12,13,14,29]
 
+        lmk_index = [2,3,4,5,6,7,8,9,10,11,12,13,14,29]
 
         landmark_select = landmark[lmk_index]
 
-        mask = np.zeros((256,256,3))
+        mask = np.zeros((IMG_DIM_X,IMG_DIM_Y,3))
 
         pts = landmark_select.reshape((-1,1,2))
 
@@ -111,6 +111,7 @@ class Aligneddataset(BaseDataset):
             # random dimensions
             new_dim_x = np.random.randint(int(IMG_DIM_X * 0.75), IMG_DIM_X+1)
             new_dim_y = np.random.randint(int(IMG_DIM_Y * 0.75), IMG_DIM_Y+1)
+
             new_dim_x = int(np.floor(new_dim_x / 64.0) * 64 ) # << dependent on the network structure !! 64 => 6 layers
             new_dim_y = int(np.floor(new_dim_y / 64.0) * 64 )
             if new_dim_x > IMG_DIM_X: new_dim_x -= 64

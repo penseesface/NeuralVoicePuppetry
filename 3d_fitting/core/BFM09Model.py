@@ -117,8 +117,6 @@ class BFM09ReconModel(BaseReconModel):
 
         rotation = self.compute_rotation_matrix(angles)
 
-        print(translation.shape)
-
         vs_t = self.rigid_transform(vs, rotation, translation)
 
         lms_t = self.get_lms(vs_t)

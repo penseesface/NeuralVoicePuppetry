@@ -16,57 +16,46 @@ from PIL import Image
 from inpainter import Inpainter
 from inpainter.options import Options
 import torchvision.transforms as transforms
+import time
 
 def load_target(start,end,path):
     
     mydict={}
     for i in range(start,end-1):
-        print(i)
-        coeffs = pickle.load(open(f'{path}/train/{i:04d}_coeffs.pkl','br'))
-        crop_img = Image.open(f'{path}/train/{i:04d}_crop.jpg')  
+        coeffs = pickle.load(open(f'{path}/{i:04d}_coeffs.pkl','br'))
+        crop_img = Image.open(f'{path}/{i:04d}_crop.jpg')  
         
-        lmk = pickle.load(open(f'{path}/train/{i:04d}_lms_proj.pkl','br'))[0]
+        lmk = pickle.load(open(f'{path}/{i:04d}_lms_proj.pkl','br'))[0]
  
         mydict[f'{i:04d}']=[coeffs,crop_img,lmk]
     return mydict
 
 
 
-def process_img(bg, fg, mtcnn, frame, V_writer, args):
+def process_img(bg, fg, V_writer, args):
     
-    img_arr = bg[:, :, ::-1]
-    orig_h, orig_w = img_arr.shape[:2]
-    bboxes, probs = mtcnn.detect(img_arr)
-    if bboxes is None:
-        return None
-    if len(bboxes) == 0:
-        return None
-    bbox = utils.pad_bbox(bboxes[0], (orig_w, orig_h), args.padding_ratio)
+    #YMH
+    bbox = [200,0,920,720]    
+    
+    # #obama
+    bbox = [382,13,831,462]
+    # #obama3
+
+    bbox = [301,32,913,644]
+
     face_w = bbox[2] - bbox[0]
     face_h = bbox[3] - bbox[1]
 
     resized = cv2.resize(fg,(face_w,face_h))
-
-
+    
     _bg = bg.copy()
 
     _bg[bbox[1]:bbox[3],bbox[0]:bbox[2]]=resized
 
-
-    #resize render (960,540)
-    render = cv2.resize(_bg,(512,512))
-    target = cv2.resize(bg,(540,960))
-
-    src = cv2.resize(frame,(540,311))
-
-    canvas = np.zeros((512,512,3),dtype=np.uint8)
-
-    print(canvas.shape)
-    #canvas[:,-540:,:]=target
-    canvas[:,:,:]=render
-    #canvas[:311,:540,:]=src
-
-    V_writer.write(canvas)
+    # cv2.imshow('',_bg)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    V_writer.write(fg)
 
 
 
@@ -82,59 +71,76 @@ if __name__=='__main__':
     #face detection
     mtcnn = MTCNN(select_largest=False, device=device)
     fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._3D, flip_input=False, device=device)
+    opt = Options()
 
     #pytorch render
-    recon_model = get_recon_model(model=args.recon_model, device=device, batch_size=1, img_size=args.tar_size)
+    recon_model = get_recon_model(model=args.recon_model, device=device, batch_size=1, img_size=opt.IMG_size)
 
-    opt = Options()
-    inpainter =Inpainter.Inpainter(opt,'checkpoints/3rd_exp_ymh/25_inpainter.pth')
+    inpainter =Inpainter.Inpainter(opt,opt.model_path)
 
-    out_folder = 'media/2nd_version_virtual_YMH_3'
+    out_folder = opt.ouput
 
     if not os.path.exists(out_folder):
         os.mkdir(out_folder)
     if not os.path.exists(f'{out_folder}/debug'):
         os.mkdir(f'{out_folder}/debug')
 
-    target = 'media/frames_dst_ymh_tar_fit_gt2'
+    target = opt.target_path
 
-    background = 'media/frames_dst_ymh_tar'
-
-    src_expression = pickle.load(open(f'media/expression_1208_virtual.pkl','br'))
-    
+    if opt.src_expression.endswith('.pkl'):
+        src_expression = pickle.load(open(f'{opt.src_expression}','br'))
+    else:
+        src_expression = [x for x in os.listdir(opt.src_expression) if x.endswith('coeffs.pkl')]
+        src_expression = sorted(src_expression)
+        #print(src_expression)
+        src_expression = [ pickle.load(open(f'{opt.src_expression}/{x}','br'))[:, 80:144]   for x in src_expression]
 
     src_size = len(src_expression)
 
     print(len(src_expression))
+
     index_start = 0
+    end_index = int(len(os.listdir(target))/4)
 
-    # target_info =  load_target(index_start,src_size+index_start,target)
-    target_info =  load_target(index_start,550,target)
+    print('target end index',end_index)
 
+    target_info =  load_target(index_start,end_index,target)
+
+    #extract background frames
+    background_frames  = {}
+    cap  = cv2.VideoCapture(f'{ opt.background_v}')
+    frame_cnt = 0
+    while 1:
+        ret,background = cap.read()
+        if not ret:
+            break
+        background_frames[f'{frame_cnt:04d}']=background
+        frame_cnt+=1
+
+        if frame_cnt > 1000:
+            break
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     fps = 30
-    height = 512
-    width = 512
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))    
+    height = int(512)
+    width = int(512)
     print("fps", fps)
     print("frame_height", height)
     print("frame_width", width)
 
-
     V_writer = cv2.VideoWriter(f'{out_folder}/videorendered.mp4',fourcc, fps, (width,height))
 
-    cap  = cv2.VideoCapture('media/aobama.mp4')
-
+    t0 = time.time()
     for i,exp in enumerate(src_expression[:-1]):
 
-        ret,frame = cap.read()
-
-        if not ret:
+        if i > 1000:
             break
 
         ID = i+index_start
 
-        ID = ID%550
+        ID = ID%(len(target_info))
 
         target_coeffs = target_info[f'{ID:04d}'][0] 
         
@@ -145,11 +151,10 @@ if __name__=='__main__':
         result = recon_model(new_coeffes)
 
         #load landmark
-
         landmark = target_info[f'{ID:04d}'][2] 
         lmk_index = [2,3,4,5,6,7,8,9,10,11,12,13,14,29]
         landmark_select = landmark[lmk_index]
-        mask = np.zeros((256,256,3))
+        mask = np.zeros((opt.IMG_size,opt.IMG_size,3))
         pts = landmark_select.reshape((-1,1,2))
         pts = np.array(pts,dtype=np.int32)
         mask = cv2.fillPoly(mask,[pts],(255,255,255))
@@ -164,6 +169,10 @@ if __name__=='__main__':
 
 
         #rerender crop face
+
+        # print('mask shape',mask.shape)
+        # print('Target shape',TARGET.shape)
+        # print('render shape',render.shape)
         fake = inpainter(TARGET,render,mask)
         fg = Inpainter.tensor2im(fake.clone())
         fg = fg[:,:,::-1]
@@ -172,9 +181,9 @@ if __name__=='__main__':
         #debug
         _render_copy = ((render.permute(1,2,0)+1)/2*255).cpu().numpy()[:,:,::-1]
         _render_copy = _render_copy.astype(np.uint8)
-        saved = np.ones((256,256*2,3),dtype=np.uint8)
-        saved[:,:256,:] = _render_copy
-        saved[:,256:,:] = fg
+        saved = np.ones((opt.IMG_size,opt.IMG_size*2,3),dtype=np.uint8)
+        saved[:,:opt.IMG_size,:] = _render_copy
+        saved[:,opt.IMG_size:,:] = fg
 
         cv2.imwrite(f'{out_folder}/debug/{ID:04d}.jpg',saved)
 
@@ -185,11 +194,14 @@ if __name__=='__main__':
         # cv2.destroyAllWindows()
 
 
-
         #resize back
-        bg = cv2.imread(f'{background}/{ID:04d}.jpg')
+        bg = background_frames[f'{ID:04d}']
 
-        process_img(bg,fg,mtcnn,frame,V_writer,args)
-
+        process_img(bg,fg,V_writer,args)
+        c = i+1
+        t1 = time.time()
+        # print('time', (t1-t0)/c)
+        # print('FPS', 1/((t1 - t0)/c))
+        
     V_writer.release()
         

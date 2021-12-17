@@ -7,3 +7,6 @@
 config the model and target folder path
 
 run python 3d_fitting/transfer2video.py
+
+# before runing
+python -m visdom.server

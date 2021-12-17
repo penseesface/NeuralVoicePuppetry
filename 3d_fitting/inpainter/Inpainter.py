@@ -36,14 +36,14 @@ def tensor2im(input_image, imtype=np.uint8):
 INVALID_UV = 0
 
 class Inpainter(nn.Module):
-    def __init__(self,opt) -> None:
+    def __init__(self,opt,pretrained='3d_fitting/inpainter/2nd_45_inpainter_ymh.pth') -> None:
         super(Inpainter, self).__init__()
 
         self.device = opt.device
 
         self.inpainter = define_Inpainter(opt.rendererTypes, 6, opt.ngf, opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, opt.gpu_ids)
 
-        self._load_networks('3d_fitting/inpainter/2nd_version_20_inpainter.pth')
+        self._load_networks(f'{pretrained}')
 
     def __patch_instance_norm_state_dict(self, state_dict, module, keys, i=0):
         key = keys[i]
@@ -82,8 +82,7 @@ class Inpainter(nn.Module):
 
         # mask = torch.cat([mask,mask,mask], 1)
 
-       # self.background = torch.where(mask, self.target, torch.zeros_like(self.target))
-
+        # self.background = torch.where(mask, self.target, torch.zeros_like(self.target))
 
 
         mask = self.mask == INVALID_UV
@@ -92,7 +91,6 @@ class Inpainter(nn.Module):
         self.background = torch.where(mask, self.target, torch.zeros_like(self.target))
 
         self.rendered = torch.where(mask, torch.zeros_like(self.target), self.rendered)
-
 
 
         self.fake = self.inpainter(self.rendered, self.background)
