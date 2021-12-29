@@ -50,7 +50,18 @@ def process_img(bg, fg, V_writer, bbox,args):
     # cv2.destroyAllWindows()
     V_writer.write(_bg)
 
+def resample(exp,src_rate,target_rate):
+    L,D = exp.shape
+    xp = np.arange(0,L/src_rate,1/src_rate).reshape(-1)
+    x = np.arange(0,xp[-1],1/target_rate).reshape(-1)
 
+
+    out = np.zeros([x.shape[0],D], dtype=np.float32)
+    for i in range(D):
+
+        buff = np.interp(x,xp,exp[:,i])
+        out[:,i] = buff
+    return out
 
 if __name__=='__main__':
 
@@ -82,6 +93,9 @@ if __name__=='__main__':
 
     if opt.src_expression.endswith('.pkl'):
         src_expression = pickle.load(open(f'{opt.src_expression}','br'))
+
+        src_expression = resample(src_expression,60,30)
+
     else:
         src_expression = [x for x in os.listdir(opt.src_expression) if x.endswith('coeffs.pkl')]
         src_expression = sorted(src_expression)
@@ -90,7 +104,7 @@ if __name__=='__main__':
 
     src_size = len(src_expression)
 
-    print(len(src_expression))
+    print('experesion length',len(src_expression))
 
     index_start = 0
     end_index = int(len(os.listdir(target))/4)
@@ -107,8 +121,10 @@ if __name__=='__main__':
         ret,background = cap.read()
         if not ret:
             break
+        
         if frame_cnt>19:
             background_frames[f'{frame_cnt-20:04d}']=background
+        
         frame_cnt+=1
 
         if frame_cnt > 2000:
@@ -126,10 +142,20 @@ if __name__=='__main__':
 
     V_writer = cv2.VideoWriter(f'{out_folder}/videorendered.mp4',fourcc, fps, (width,height))
 
+
+    id_coeff, exp_coeff, tex_coeff, angles, gamma, translation = recon_model.split_coeffs(target_info[f'{0:04d}'][0])
+
+    previous_trans = translation
+    previous_angle = angles
+    previous_idcoeff = id_coeff
+    previous_tex_coeff = tex_coeff
+    previous_exp = src_expression[0]
+
+
     t0 = time.time()
     for i,exp in enumerate(src_expression[:-1]):
 
-        if i > 1000:
+        if i > 2000:
             break
 
         ID = i+index_start
@@ -141,7 +167,17 @@ if __name__=='__main__':
         # render 3D face
         target_img = target_info[f'{ID:04d}'][1] 
         id_coeff, exp_coeff, tex_coeff, angles, gamma, translation = recon_model.split_coeffs(target_coeffs)
-        new_coeffes = recon_model.merge_coeffs( id_coeff.cuda(), torch.Tensor(exp).cuda().view(1,64), tex_coeff.cuda(), angles.cuda(), gamma.cuda(), translation.cuda() )
+        
+        new_translation = opt.mvg_lamda*previous_trans+(1-opt.mvg_lamda)*translation 
+        new_angles = opt.mvg_lamda*previous_angle+(1-opt.mvg_lamda)*angles 
+
+        new_exp = opt.src_exp_lamda*previous_exp+(1-opt.src_exp_lamda)*exp 
+        if i>0: 
+            previous_trans = new_translation
+            previous_angle = new_angles
+            previous_exp = new_exp
+
+        new_coeffes = recon_model.merge_coeffs( previous_idcoeff.cuda(), torch.Tensor(exp).cuda().view(1,64), tex_coeff.cuda(), new_angles.cuda(), gamma.cuda(), new_translation.cuda() )
         result = recon_model(new_coeffes)
 
         #load landmark
@@ -152,6 +188,11 @@ if __name__=='__main__':
         pts = landmark_select.reshape((-1,1,2))
         pts = np.array(pts,dtype=np.int32)
         mask = cv2.fillPoly(mask,[pts],(255,255,255))
+
+        kernal = np.ones((3,3),np.uint)
+        mask = cv2.dilate(mask,kernel=kernal,iterations=4)
+        
+
         mask = transforms.ToTensor()(mask.astype(np.float32))
 
         # norm 
@@ -161,9 +202,7 @@ if __name__=='__main__':
         TARGET = transforms.ToTensor()(img_array_crop.astype(np.float32))
         TARGET = 2.0 * TARGET - 1.0
 
-
         #rerender crop face
-
         # print('mask shape',mask.shape)
         # print('Target shape',TARGET.shape)
         # print('render shape',render.shape)

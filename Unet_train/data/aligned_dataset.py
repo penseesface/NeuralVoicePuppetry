@@ -69,8 +69,8 @@ class Aligneddataset(BaseDataset):
         crop_path = self.crop_paths[index]
 
         # default image dimensions
-        IMG_DIM_X = 512
-        IMG_DIM_Y = 512
+        IMG_DIM_X = 256
+        IMG_DIM_Y = 256
 
         # load image data
  
@@ -91,7 +91,18 @@ class Aligneddataset(BaseDataset):
 
         mask = cv2.fillPoly(mask,[pts],(255,255,255))
 
-        # cv2.imshow('',mask)
+        itera = np.random.randint(5)
+        kernal = np.ones((3,3),np.uint)
+
+        if np.random.rand() > 0.3:
+            mask = cv2.dilate(mask,kernel=kernal,iterations=itera)
+        
+        
+        if np.random.rand() > 0.7:
+            mask = cv2.erode(mask,kernel=kernal,iterations=itera)
+
+        # cv2.imshow('dilate',mask_dilate)
+        # cv2.imshow('mask',mask)
         # cv2.waitKey()
         # cv2.destroyAllWindows()
 
@@ -107,28 +118,6 @@ class Aligneddataset(BaseDataset):
         #################################
         ####### apply augmentation ######
         #################################
-        if not self.opt.no_augmentation:
-            # random dimensions
-            new_dim_x = np.random.randint(int(IMG_DIM_X * 0.75), IMG_DIM_X+1)
-            new_dim_y = np.random.randint(int(IMG_DIM_Y * 0.75), IMG_DIM_Y+1)
-
-            new_dim_x = int(np.floor(new_dim_x / 64.0) * 64 ) # << dependent on the network structure !! 64 => 6 layers
-            new_dim_y = int(np.floor(new_dim_y / 64.0) * 64 )
-            if new_dim_x > IMG_DIM_X: new_dim_x -= 64
-            if new_dim_y > IMG_DIM_Y: new_dim_y -= 64
-
-            # random pos
-            if IMG_DIM_X == new_dim_x: offset_x = 0
-            else: offset_x = np.random.randint(0, IMG_DIM_X-new_dim_x)
-            if IMG_DIM_Y == new_dim_y: offset_y = 0
-            else: offset_y = np.random.randint(0, IMG_DIM_Y-new_dim_y)
-
-            # select subwindow
-            # TARGET = TARGET[:, offset_y:offset_y+new_dim_y, offset_x:offset_x+new_dim_x]
-            # render = render[:, offset_y:offset_y+new_dim_y, offset_x:offset_x+new_dim_x]
-
-            # compute new intrinsics
-            # TODO: atm not needed but maybe later
 
 
         #################################

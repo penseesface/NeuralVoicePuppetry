@@ -88,6 +88,8 @@ class Inpainter(nn.Module):
         mask = self.mask == INVALID_UV
         #mask = mask.permute(0,3,1,2)
 
+        
+
         self.background = torch.where(mask, self.target, torch.zeros_like(self.target))
 
         self.rendered = torch.where(mask, torch.zeros_like(self.target), self.rendered)

@@ -50,6 +50,9 @@ print(x1,y1,x2,y2)
 #obama_4 382 13 831 462
 
 count=0
+
+cap  = cv2.VideoCapture('media/obama3.mp4')
+
 while 1:
     ret,frame = cap.read()
     if not ret or frame is None:
