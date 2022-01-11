@@ -52,23 +52,14 @@ def process_img(bg, fg, V_writer, bbox,args):
 
 def resample(exp,src_rate,target_rate):
     L,D = exp.shape
-    
     xp = np.arange(0,L/src_rate,1/src_rate).reshape(-1)
-    
     x = np.arange(0,xp[-1],1/target_rate).reshape(-1)
 
 
     out = np.zeros([x.shape[0],D], dtype=np.float32)
-    
-    print(x.shape)
-    print(xp.shape)
-    print(exp[:,0].shape)
-    
-    if xp.shape[0] != exp[:,0].shape[0]:
-        xp = xp[:-1]
     for i in range(D):
+
         buff = np.interp(x,xp,exp[:,i])
-        
         out[:,i] = buff
     return out
 
@@ -108,11 +99,8 @@ if __name__=='__main__':
 
     if opt.src_expression.endswith('.pkl'):
         src_expression = pickle.load(open(f'{opt.src_expression}','br'))
-
-        print("expression",src_expression.shape)
-        
         src_expression = src_expression[:4408]
-        
+
         src_expression = resample(src_expression,60,30)
 
     else:
@@ -163,6 +151,7 @@ if __name__=='__main__':
     print("frame_width", width)
 
     V_writer = cv2.VideoWriter(f'{out_folder}/videorendered.mp4',fourcc, fps, (width,height))
+
     id_coeff, exp_coeff, tex_coeff, angles, gamma, translation = recon_model.split_coeffs(target_info[f'{0:04d}'][0])
 
     previous_trans = translation
@@ -170,7 +159,6 @@ if __name__=='__main__':
     previous_idcoeff = id_coeff
     previous_tex_coeff = tex_coeff
     previous_exp = src_expression[0]
-
 
     pdist = nn.PairwiseDistance(p=2)
 
@@ -189,17 +177,29 @@ if __name__=='__main__':
         # render 3D face
         target_img = target_info[f'{ID:04d}'][1] 
         id_coeff, exp_coeff, tex_coeff, angles, gamma, translation = recon_model.split_coeffs(target_coeffs)
+    
+    
+        trans_dist = pdist(translation,previous_trans).cpu()[0]
+        angle_dist = pdist(angles,previous_angle).cpu()[0]
+
+        if trans_dist>opt.trans_dth:
+            new_translation = translation
+        else:
+            alpha = torch.exp(-opt.smth_scale*trans_dist)
+            
+            print(alpha)
+            new_translation = alpha*previous_trans + (1-alpha)*translation
         
-        new_translation = opt.mvg_lamda*previous_trans+(1-opt.mvg_lamda)*translation 
         new_angles = opt.mvg_lamda*previous_angle+(1-opt.mvg_lamda)*angles 
 
         new_exp = opt.src_exp_lamda*previous_exp+(1-opt.src_exp_lamda)*exp 
+        
         if i>0: 
             previous_trans = new_translation
             previous_angle = new_angles
             previous_exp = new_exp
 
-        new_coeffes = recon_model.merge_coeffs( previous_idcoeff.cuda(), torch.Tensor(exp).cuda().view(1,64), tex_coeff.cuda(), new_angles.cuda(), gamma.cuda(), new_translation.cuda() )
+        new_coeffes = recon_model.merge_coeffs( previous_idcoeff.cuda(), torch.Tensor(new_exp).cuda().view(1,64), tex_coeff.cuda(), new_angles.cuda(), gamma.cuda(), new_translation.cuda() )
         result = recon_model(new_coeffes)
 
         #load landmark

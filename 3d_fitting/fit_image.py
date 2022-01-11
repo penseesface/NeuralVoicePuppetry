@@ -133,8 +133,8 @@ if __name__=='__main__':
     #fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device=device)
     fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._3D, flip_input=False, device=device)
 
-    src = 'media/frame_src_heiwa'
-    dst = 'media/frame_src_heiwa_fit_gt/train'
+    src = 'media/frame_evelyn'
+    dst = 'media/frame_evelyn_fit_gt/train'
 
     #for index in range(len(os.listdir('/home/allen/Documents/workplace/NeuralVoicePuppetry/media/frame_src'))):
     for index in range(len(os.listdir(src))):

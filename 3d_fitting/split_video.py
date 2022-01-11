@@ -5,12 +5,12 @@ device = 'cuda:0'
 
 mtcnn = MTCNN(select_largest=False, device=device)
 
-cap  = cv2.VideoCapture('media/obama3.mp4')
+cap  = cv2.VideoCapture('media/src_evelyn.MOV')
 
 
 count=0
 bboxes = []
-while count<20:
+while count<90:
     ret,frame = cap.read()
     if not ret or frame is None:
         break
@@ -48,10 +48,11 @@ print(x1,y1,x2,y2)
 #jane   200,500,920,1080 
 
 #obama_4 382 13 831 462
-
+#xiaoyan 250 629 859 1238
+#evelyn 302 407 861 966
 count=0
 
-cap  = cv2.VideoCapture('media/obama3.mp4')
+cap  = cv2.VideoCapture('media/src_evelyn.MOV')
 
 while 1:
     ret,frame = cap.read()
@@ -66,8 +67,8 @@ while 1:
 
     print(resized.shape)
 
-    cv2.imwrite(f'media/frames_obame4/{count:04d}.jpg',resized2)
-    cv2.imwrite(f'media/frames_obame4_512/{count:04d}.jpg',resized)
+    cv2.imwrite(f'media/frame_evelyn/{count:04d}.jpg',resized2)
+    #cv2.imwrite(f'media/frame_xiaoyan_512/{count:04d}.jpg',resized)
 
     count+=1
     if count>6000:

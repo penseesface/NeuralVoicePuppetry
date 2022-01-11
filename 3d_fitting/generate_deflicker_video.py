@@ -52,23 +52,14 @@ def process_img(bg, fg, V_writer, bbox,args):
 
 def resample(exp,src_rate,target_rate):
     L,D = exp.shape
-    
     xp = np.arange(0,L/src_rate,1/src_rate).reshape(-1)
-    
     x = np.arange(0,xp[-1],1/target_rate).reshape(-1)
 
 
     out = np.zeros([x.shape[0],D], dtype=np.float32)
-    
-    print(x.shape)
-    print(xp.shape)
-    print(exp[:,0].shape)
-    
-    if xp.shape[0] != exp[:,0].shape[0]:
-        xp = xp[:-1]
     for i in range(D):
+
         buff = np.interp(x,xp,exp[:,i])
-        
         out[:,i] = buff
     return out
 
@@ -93,26 +84,11 @@ if __name__=='__main__':
 
     out_folder = opt.ouput
 
-    if not os.path.exists(out_folder):
-        os.mkdir(out_folder)
-    if not os.path.exists(f'{out_folder}/debug'):
-        os.mkdir(f'{out_folder}/debug')
-        
-    if not os.path.exists(f'{out_folder}/processed'):
-        os.mkdir(f'{out_folder}/processed')
-
-    if not os.path.exists(f'{out_folder}/frames'):
-        os.mkdir(f'{out_folder}/frames')
-
     target = opt.target_path
 
     if opt.src_expression.endswith('.pkl'):
         src_expression = pickle.load(open(f'{opt.src_expression}','br'))
 
-        print("expression",src_expression.shape)
-        
-        src_expression = src_expression[:4408]
-        
         src_expression = resample(src_expression,60,30)
 
     else:
@@ -162,7 +138,8 @@ if __name__=='__main__':
     print("frame_height", height)
     print("frame_width", width)
 
-    V_writer = cv2.VideoWriter(f'{out_folder}/videorendered.mp4',fourcc, fps, (width,height))
+    V_writer = cv2.VideoWriter(f'{out_folder}/video_deflicker.mp4',fourcc, fps, (width,height))
+
     id_coeff, exp_coeff, tex_coeff, angles, gamma, translation = recon_model.split_coeffs(target_info[f'{0:04d}'][0])
 
     previous_trans = translation
@@ -170,7 +147,6 @@ if __name__=='__main__':
     previous_idcoeff = id_coeff
     previous_tex_coeff = tex_coeff
     previous_exp = src_expression[0]
-
 
     pdist = nn.PairwiseDistance(p=2)
 
@@ -184,85 +160,13 @@ if __name__=='__main__':
 
         ID = ID%(len(target_info))
 
-        target_coeffs = target_info[f'{ID:04d}'][0] 
-        
-        # render 3D face
-        target_img = target_info[f'{ID:04d}'][1] 
-        id_coeff, exp_coeff, tex_coeff, angles, gamma, translation = recon_model.split_coeffs(target_coeffs)
-        
-        new_translation = opt.mvg_lamda*previous_trans+(1-opt.mvg_lamda)*translation 
-        new_angles = opt.mvg_lamda*previous_angle+(1-opt.mvg_lamda)*angles 
 
-        new_exp = opt.src_exp_lamda*previous_exp+(1-opt.src_exp_lamda)*exp 
-        if i>0: 
-            previous_trans = new_translation
-            previous_angle = new_angles
-            previous_exp = new_exp
-
-        new_coeffes = recon_model.merge_coeffs( previous_idcoeff.cuda(), torch.Tensor(exp).cuda().view(1,64), tex_coeff.cuda(), new_angles.cuda(), gamma.cuda(), new_translation.cuda() )
-        result = recon_model(new_coeffes)
-
-        #load landmark
-        landmark = target_info[f'{ID:04d}'][2] 
-        lmk_index = [2,3,4,5,6,7,8,9,10,11,12,13,14,29]
-        landmark_select = landmark[lmk_index]
-        mask = np.zeros((opt.IMG_size,opt.IMG_size,3))
-        pts = landmark_select.reshape((-1,1,2))
-        pts = np.array(pts,dtype=np.int32)
-        mask = cv2.fillPoly(mask,[pts],(255,255,255))
-
-        kernal = np.ones((3,3),np.uint)
-        mask = cv2.dilate(mask,kernel=kernal,iterations=4)
-        
-
-        mask = transforms.ToTensor()(mask.astype(np.float32))
-
-        # norm 
-        render = (result['rendered_img'] / 255 * 2 -1)[0,:,:,:3]
-        render =  render.permute(2, 0, 1)
-        img_array_crop = np.asarray(target_img)/255
-        TARGET = transforms.ToTensor()(img_array_crop.astype(np.float32))
-        TARGET = 2.0 * TARGET - 1.0
-
-        #rerender crop face
-        # print('mask shape',mask.shape)
-        # print('Target shape',TARGET.shape)
-        # print('render shape',render.shape)
-        fake = inpainter(TARGET,render,mask)
-        fg = Inpainter.tensor2im(fake.clone())
-        fg = fg[:,:,::-1]
-
-
-        #debug
-        _render_copy = ((render.permute(1,2,0)+1)/2*255).cpu().numpy()[:,:,::-1]
-        _render_copy = _render_copy.astype(np.uint8)
-        saved = np.ones((opt.IMG_size,opt.IMG_size*2,3),dtype=np.uint8)
-        saved[:,:opt.IMG_size,:] = _render_copy
-        saved[:,opt.IMG_size:,:] = fg
-
-        cv2.imwrite(f'{out_folder}/debug/{ID:04d}.jpg',saved)
-
-
-        # save for deflicker
-        cv2.imwrite(f'{out_folder}/processed/{ID:05d}.jpg',fg)
         #resize back
         bg = background_frames[f'{ID:04d}']
         
+        print(f'{out_folder}/output/{ID:05d}.jpg')
+        fg = cv2.imread(f'{out_folder}/output/{ID:05d}.jpg')
         
-        x1, y1, x2, y2 = opt.bbox
-
-
-        crop = bg[y1:y2, x1:x2]
-        crop = cv2.resize(crop,(256,256                               ))
-        cv2.imwrite(f'{out_folder}/frames/{ID:05d}.jpg',crop)
-
-        # # print(fg.shape)
-        # cv2.imshow('crop',crop) 
-        # cv2.imshow('fg',fg)
-        # cv2.waitKey() 
-        # cv2.destroyAllWindows()
-
-
 
         process_img(bg,fg,V_writer,opt.bbox,args)
         
