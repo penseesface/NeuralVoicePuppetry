@@ -21,7 +21,10 @@ from PIL import Image
 
 
 
-def process_img(img, fa, mtcnn, device, args):
+
+
+
+def process_img(img, fa, lmk, device, args):
     recon_model = get_recon_model(model=args.recon_model, device=device, batch_size=1, img_size=args.tar_size)
     
     img_arr = img[:, :, ::-1]
@@ -40,11 +43,14 @@ def process_img(img, fa, mtcnn, device, args):
 
     resized_face_img = cv2.resize(img_arr, (args.tar_size, args.tar_size))
     
-    try:
-        lms = fa.get_landmarks_from_image(resized_face_img)[0]
-    except:
-        return False, 0, 0
-    lms = lms[:, :2][None, ...]
+    # try:
+    #     lms = fa.get_landmarks_from_image(resized_face_img)[0]
+    # except:
+    #     return False, 0, 0
+    
+    
+    
+    lms = lmk[:, :2][None, ...]
 
 
     img_show = resized_face_img.copy()
@@ -133,8 +139,14 @@ if __name__=='__main__':
     #fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device=device)
     fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._3D, flip_input=False, device=device)
 
-    src = 'media/frame_evelyn'
-    dst = 'media/frame_evelyn_fit_gt/train'
+    src = 'media/frame_avata_adam'
+    dst = 'media/frame_avata_adam_gt_fit/train'
+
+
+
+    lmks = pickle.load(open(f'{dst[:-5]}/lowpass_lmk.pkl','br'))
+
+
 
     #for index in range(len(os.listdir('/home/allen/Documents/workplace/NeuralVoicePuppetry/media/frame_src'))):
     for index in range(len(os.listdir(src))):
@@ -143,7 +155,9 @@ if __name__=='__main__':
 
         im = cv2.imread(f'{src}/{img_name}.jpg')
 
-        has_face, render_img ,resized_face_img ,coeffs,lms_proj = process_img(im, fa, mtcnn, device, args)
+        lmk = lmks[index]
+
+        has_face, render_img ,resized_face_img ,coeffs,lms_proj = process_img(im, fa, lmk, device, args)
 
         im = Image.fromarray(render_img[0,...,:3].astype(np.uint8))
 

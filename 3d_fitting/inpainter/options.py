@@ -54,21 +54,21 @@ class Options():
         
         
         
-        self.model_path = 'checkpoints/13th_exp_evelyn_256_aug/60_inpainter.pth'
-        self.IMG_size = 256
-        self.ouput = 'media/4nd_english_2_evelyn_256_audio_aug_0111'
-        self.target_path = 'media/frame_evelyn_fit_gt/train'
-        self.src_expression = 'media/expression_src_0111.pkl'
-        self.background_v = 'media/src_evelyn.MOV'
-        self.bbox = [302,407,861,966]#aobama
-        self.FPS = 30
-        self.mvg_lamda = 0.3
-        self.src_exp_lamda = 0.5
-        self.cuthead = False   
-            
-        self.trans_dth = 0.05
-        self.angle_dth = 0.015
-        self.smth_scale = 50
+        # self.model_path = 'checkpoints/13th_exp_evelyn_256_aug/60_inpainter.pth'
+        # self.IMG_size = 256
+        # self.ouput = 'media/5th_english_2_evelyn_256_audio_aug_0118'
+        # self.target_path = 'media/frame_evelyn_fit_gt/train'
+        # self.src_expression = 'media/expression_0106_30fps.pkl'
+        # self.background_v = 'media/src_evelyn.MOV'
+        # self.bbox = [302,407,861,966]
+        # self.FPS = 30
+        # self.mvg_lamda = 0.3
+        # self.src_exp_lamda = 0.5
+        # self.cuthead = False   
+        # self.trans_dth = 0.05
+        # self.angle_dth = 0.015
+        # self.smth_scale = 50
+        
         
         
         # self.model_path = 'checkpoints/14th_exp_jane3_256_aug/40_inpainter.pth'
@@ -83,3 +83,19 @@ class Options():
         # self.src_exp_lamda = 0.3
         # self.cuthead = False       
         
+        
+        self.model_path = 'checkpoints/18th_exp_kpop_256_aug2_fit/60_inpainter.pth'
+        self.IMG_size = 256
+        self.ouput = 'media/4nd_kpop_2_avata_256_audio_aug2_0118'
+        self.target_path = 'media/frame_avata_kpop_gt_fit/train'
+        self.src_expression = 'media/expression_0106_30fps.pkl'
+        self.background_v = 'media/src_kpop_long.mp4'
+        self.bbox = [ 621,13,1314,706]
+        self.FPS = 30
+        self.mvg_lamda = 0.3
+        self.src_exp_lamda = 0.5
+        self.cuthead = False   
+            
+        self.trans_dth = 0.05
+        self.angle_dth = 0.015
+        self.smth_scale = 50

@@ -30,8 +30,8 @@ def resample(exp,src_rate,target_rate):
 
 def main():
     device = 'cuda:0'
-    src_expression = pickle.load(open(f'media/expression_src_evelyn_small.pkl','br'))
-    src_expression = resample(src_expression,60,30)
+    src_expression = pickle.load(open(f'media/expression_0118_farm_3min.pkl','br'))
+    #src_expression = resample(src_expression,60,30)
 
     print(src_expression.shape)
     
@@ -39,9 +39,9 @@ def main():
     args = args.parse()
     recon_model = get_recon_model(model=args.recon_model, device=device, batch_size=1, img_size=args.tar_size)
 
-    fit_folder = 'media/frame_evelyn_fit_gt/train'
+    fit_folder = 'media/frame_avata_farm_gt_fit_650/train'
     
-    dst = 'media/frame_evelyn_cy_gt/train'
+    dst = 'media/frame_avata_farm_gt_fit_cyaudio/train'
     
     for index,exp in enumerate(src_expression):
         

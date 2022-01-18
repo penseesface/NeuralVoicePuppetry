@@ -60,10 +60,7 @@ def resample(exp,src_rate,target_rate):
 
     out = np.zeros([x.shape[0],D], dtype=np.float32)
     
-    print(x.shape)
-    print(xp.shape)
-    print(exp[:,0].shape)
-    
+
     if xp.shape[0] != exp[:,0].shape[0]:
         xp = xp[:-1]
     for i in range(D):
@@ -110,10 +107,8 @@ if __name__=='__main__':
         src_expression = pickle.load(open(f'{opt.src_expression}','br'))
 
         print("expression",src_expression.shape)
-        
-        src_expression = src_expression[:4408]
-        
-        src_expression = resample(src_expression,60,30)
+        src_expression = src_expression
+        #src_expression = resample(src_expression,60,30)
 
     else:
         src_expression = [x for x in os.listdir(opt.src_expression) if x.endswith('coeffs.pkl')]
@@ -127,10 +122,10 @@ if __name__=='__main__':
 
     index_start = 0
     end_index = int(len(os.listdir(target))/4)
-
     print('target end index',end_index)
 
     target_info =  load_target(index_start,end_index,target)
+
 
     #extract background frames
     background_frames  = {}
@@ -181,9 +176,7 @@ if __name__=='__main__':
             break
 
         ID = i+index_start
-
         ID = ID%(len(target_info))
-
         target_coeffs = target_info[f'{ID:04d}'][0] 
         
         # render 3D face
@@ -192,14 +185,15 @@ if __name__=='__main__':
         
         new_translation = opt.mvg_lamda*previous_trans+(1-opt.mvg_lamda)*translation 
         new_angles = opt.mvg_lamda*previous_angle+(1-opt.mvg_lamda)*angles 
-
         new_exp = opt.src_exp_lamda*previous_exp+(1-opt.src_exp_lamda)*exp 
+        
         if i>0: 
             previous_trans = new_translation
             previous_angle = new_angles
             previous_exp = new_exp
 
         new_coeffes = recon_model.merge_coeffs( previous_idcoeff.cuda(), torch.Tensor(exp).cuda().view(1,64), tex_coeff.cuda(), new_angles.cuda(), gamma.cuda(), new_translation.cuda() )
+        
         result = recon_model(new_coeffes)
 
         #load landmark
@@ -210,11 +204,9 @@ if __name__=='__main__':
         pts = landmark_select.reshape((-1,1,2))
         pts = np.array(pts,dtype=np.int32)
         mask = cv2.fillPoly(mask,[pts],(255,255,255))
-
         kernal = np.ones((3,3),np.uint)
-        mask = cv2.dilate(mask,kernel=kernal,iterations=4)
+        mask = cv2.dilate(mask,kernel=kernal,iterations=2)
         
-
         mask = transforms.ToTensor()(mask.astype(np.float32))
 
         # norm 
@@ -224,10 +216,6 @@ if __name__=='__main__':
         TARGET = transforms.ToTensor()(img_array_crop.astype(np.float32))
         TARGET = 2.0 * TARGET - 1.0
 
-        #rerender crop face
-        # print('mask shape',mask.shape)
-        # print('Target shape',TARGET.shape)
-        # print('render shape',render.shape)
         fake = inpainter(TARGET,render,mask)
         fg = Inpainter.tensor2im(fake.clone())
         fg = fg[:,:,::-1]
@@ -236,10 +224,26 @@ if __name__=='__main__':
         #debug
         _render_copy = ((render.permute(1,2,0)+1)/2*255).cpu().numpy()[:,:,::-1]
         _render_copy = _render_copy.astype(np.uint8)
-        saved = np.ones((opt.IMG_size,opt.IMG_size*2,3),dtype=np.uint8)
+        
+        
+        saved = np.ones((opt.IMG_size,opt.IMG_size*3,3),dtype=np.uint8)
+        
         saved[:,:opt.IMG_size,:] = _render_copy
-        saved[:,opt.IMG_size:,:] = fg
+        saved[:,opt.IMG_size:512,:] = fg
 
+
+
+        mask = mask == 0
+
+        print(render.shape)
+        print(mask.shape)
+
+        intermediate = torch.where(mask, TARGET, render.cpu())
+        intermediate = np.transpose(intermediate.numpy(),[1,2,0])
+        intermediate =      np.array( (intermediate[:,:,::-1] + 1)/2*255, np.uint8)
+        
+        saved[:,512:,:] = intermediate
+        
         cv2.imwrite(f'{out_folder}/debug/{ID:04d}.jpg',saved)
 
 
@@ -247,18 +251,15 @@ if __name__=='__main__':
         cv2.imwrite(f'{out_folder}/processed/{ID:05d}.jpg',fg)
         #resize back
         bg = background_frames[f'{ID:04d}']
-        
-        
         x1, y1, x2, y2 = opt.bbox
-
-
         crop = bg[y1:y2, x1:x2]
-        crop = cv2.resize(crop,(256,256                               ))
+        crop = cv2.resize(crop,(256,256  ))
+        
         cv2.imwrite(f'{out_folder}/frames/{ID:05d}.jpg',crop)
 
         # # print(fg.shape)
-        # cv2.imshow('crop',crop) 
-        # cv2.imshow('fg',fg)
+        # cv2.imshow('crop',intermediate) 
+        # #cv2.imshow('fg',fg)
         # cv2.waitKey() 
         # cv2.destroyAllWindows()
 

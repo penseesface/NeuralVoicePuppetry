@@ -91,7 +91,7 @@ class Aligneddataset(BaseDataset):
 
         mask = cv2.fillPoly(mask,[pts],(255,255,255))
 
-        itera = np.random.randint(5)
+        itera = np.random.randint(8)
         kernal = np.ones((3,3),np.uint)
 
         if np.random.rand() > 0.3:

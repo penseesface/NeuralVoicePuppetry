@@ -5,7 +5,11 @@ device = 'cuda:0'
 
 mtcnn = MTCNN(select_largest=False, device=device)
 
-cap  = cv2.VideoCapture('media/src_evelyn.MOV')
+vname = 'media/src_adam.mp4'
+
+dst = 'media/frame_avata_adam'
+
+cap  = cv2.VideoCapture(f'{vname}')
 
 
 count=0
@@ -35,24 +39,28 @@ center_x =  int((bboxes_mean[2]+ bboxes_mean[0])/2)
 center_y =  int((bboxes_mean[3]+ bboxes_mean[1])/2)
 
 
-x1,y1,x2,y2 = int(center_x-edge*1.1), int(center_y-edge*1.1), int(center_x+edge*1.1), int(center_y+edge*1.1)
+x1,y1,x2,y2 = int(center_x-edge*1.07), int(center_y-edge*1.07), int(center_x+edge*1.07), int(center_y+edge*1.07)
 
 
 print(x1,y1,x2,y2)
-#yuminhong
-# x1,y1,x2,y2 = 200,500,920,1080 
+# #yuminhong
+# # x1,y1,x2,y2 = 200,500,920,1080 
 
-#obama 382 13 831 462
-# obama2 285 27 976 718
-#obama3 301 32 913 644
-#jane   200,500,920,1080 
+# #obama 382 13 831 462
+# # obama2 285 27 976 718
+# #obama3 301 32 913 644
+# #jane   200,500,920,1080 
 
-#obama_4 382 13 831 462
-#xiaoyan 250 629 859 1238
-#evelyn 302 407 861 966
+# #obama_4 382 13 831 462
+# #xiaoyan 250 629 859 1238
+# #evelyn 302 407 861 966
+#digital_a vata 544 1 1373 830
+#digital_a_kpop 621 13 1314 706
+#digital adam 210 14 437 241
+
+
 count=0
-
-cap  = cv2.VideoCapture('media/src_evelyn.MOV')
+cap  = cv2.VideoCapture(f'{vname}')
 
 while 1:
     ret,frame = cap.read()
@@ -67,7 +75,7 @@ while 1:
 
     print(resized.shape)
 
-    cv2.imwrite(f'media/frame_evelyn/{count:04d}.jpg',resized2)
+    cv2.imwrite(f'{dst}/{count:04d}.jpg',resized2)
     #cv2.imwrite(f'media/frame_xiaoyan_512/{count:04d}.jpg',resized)
 
     count+=1
