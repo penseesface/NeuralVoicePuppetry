@@ -143,7 +143,6 @@ if __name__=='__main__':
     dst = 'media/frame_avata_adam_gt_fit/train'
 
 
-
     lmks = pickle.load(open(f'{dst[:-5]}/lowpass_lmk.pkl','br'))
 
 

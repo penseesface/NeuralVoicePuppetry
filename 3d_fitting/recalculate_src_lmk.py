@@ -52,10 +52,6 @@ if __name__=='__main__':
     device = 'cuda:0'
 
 
-
-
-
-
     src = 'media/frame_avata_adam'
     dst = 'media/frame_avata_adam_gt_fit'
 

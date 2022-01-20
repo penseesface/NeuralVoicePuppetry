@@ -41,8 +41,9 @@ def main():
 
     fit_folder = 'media/frame_avata_farm_gt_fit_650/train'
     
-    dst = 'media/frame_avata_farm_gt_fit_cyaudio/train'
+    dst = 'media/frame_digital_combine_gt/train'
     
+    start_index = 0
     for index,exp in enumerate(src_expression):
         
         coeffs = pickle.load(open(f'{fit_folder}/{index:04d}_coeffs.pkl','br'))        
@@ -64,10 +65,13 @@ def main():
 
         img2 = Image.fromarray(crop_img)
         
-        im.save(f"{dst}/{index:04d}_render.jpg")
-        img2.save(f"{dst}/{index:04d}_crop.jpg")
-        pickle.dump(coeffs, open(f'{dst}/{index:04d}_coeffs.pkl', 'wb'))
-        pickle.dump(lms_proj, open(f'{dst}/{index:04d}_lms_proj.pkl', 'wb'))
+        
+        new_index = start_index + index
+        
+        im.save(f"{dst}/{new_index:04d}_render.jpg")
+        img2.save(f"{dst}/{new_index:04d}_crop.jpg")
+        pickle.dump(coeffs, open(f'{dst}/{new_index:04d}_coeffs.pkl', 'wb'))
+        pickle.dump(lms_proj, open(f'{dst}/{new_index:04d}_lms_proj.pkl', 'wb'))
 
     
 

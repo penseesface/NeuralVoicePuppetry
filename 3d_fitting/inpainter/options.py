@@ -84,12 +84,12 @@ class Options():
         # self.cuthead = False       
         
         
-        self.model_path = 'checkpoints/18th_exp_kpop_256_aug2_fit/60_inpainter.pth'
+        self.model_path = 'checkpoints/19th_exp_audio_combine_256_aug2_fit/20_inpainter.pth'
         self.IMG_size = 256
-        self.ouput = 'media/4nd_kpop_2_avata_256_audio_aug2_0118'
-        self.target_path = 'media/frame_avata_kpop_gt_fit/train'
+        self.ouput = 'media/5nd_farm_2_avata_256_audio_aug2_0119_epoch20'
+        self.target_path = 'media/frame_avata_farm_gt_fit_650/train'
         self.src_expression = 'media/expression_0106_30fps.pkl'
-        self.background_v = 'media/src_kpop_long.mp4'
+        self.background_v = 'media/src_farm_long.mp4'
         self.bbox = [ 621,13,1314,706]
         self.FPS = 30
         self.mvg_lamda = 0.3
