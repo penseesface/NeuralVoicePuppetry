@@ -2,9 +2,11 @@ import torch
 from . import networks
 from . options import Options
 from . UNET import UnetRenderer
+
 # from UNET import UnetRenderer
 # import networks
 # from options import Options
+
 import os
 import torch.nn as nn
 from PIL import Image
@@ -19,6 +21,9 @@ def define_Inpainter(renderer, n_feature, ngf, norm='batch', use_dropout=False, 
     N_OUT = 3
     net = UnetRenderer(renderer, n_feature, N_OUT, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
     return networks.init_net(net, init_type, init_gain, gpu_ids)
+
+
+
 
 def tensor2im(input_image, imtype=np.uint8):
     if isinstance(input_image, torch.Tensor):
@@ -36,14 +41,19 @@ def tensor2im(input_image, imtype=np.uint8):
 INVALID_UV = 0
 
 class Inpainter(nn.Module):
-    def __init__(self,opt,pretrained='3d_fitting/inpainter/2nd_45_inpainter_ymh.pth') -> None:
+    def __init__(self,opt,weight_inpainter1='checkpoints/20th_exp_audio_double/15_inpainter.pth',weight_inpainter2='checkpoints/20th_exp_audio_double/latest_inpainter2.pth') -> None:
         super(Inpainter, self).__init__()
 
         self.device = opt.device
 
         self.inpainter = define_Inpainter(opt.rendererTypes, 6, opt.ngf, opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, opt.gpu_ids)
+        
+        self.inpainter2 = define_Inpainter(opt.rendererTypes, 12, opt.ngf, opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, opt.gpu_ids)
 
-        self._load_networks(f'{pretrained}')
+        self._load_networks(weight_inpainter1,self.inpainter)
+        self._load_networks(weight_inpainter2,self.inpainter2)
+        
+        self.frame_buffer = []
 
     def __patch_instance_norm_state_dict(self, state_dict, module, keys, i=0):
         key = keys[i]
@@ -57,8 +67,8 @@ class Inpainter(nn.Module):
             self.__patch_instance_norm_state_dict(state_dict, getattr(module, key), keys, i + 1)
 
     # load models from the disk
-    def _load_networks(self, load_path):
-        net = self.inpainter
+    def _load_networks(self, load_path,net):
+        #net = self.inpainter
         print('loading the module from %s' % load_path)
         # if you are using PyTorch newer than 0.4 (e.g., built from
         # GitHub source), you can remove str() on self.device
@@ -77,43 +87,51 @@ class Inpainter(nn.Module):
         self.rendered = torch.unsqueeze(render.to(self.device),dim =0)          
         self.mask = torch.unsqueeze(mask.to(self.device),dim =0)          
 
-        # background        
-        # mask = self.rendered[:,0:1,:,:]==INVALID_UV
-
-        # mask = torch.cat([mask,mask,mask], 1)
-
-        # self.background = torch.where(mask, self.target, torch.zeros_like(self.target))
-
 
         mask = self.mask == INVALID_UV
-        #mask = mask.permute(0,3,1,2)
 
         self.background = torch.where(mask, self.target, torch.zeros_like(self.target))
 
         self.rendered = torch.where(mask, torch.zeros_like(self.target), self.rendered)
 
 
-        self.fake = self.inpainter(self.rendered, self.background)
+        self.fake = self.inpainter( torch.cat([self.rendered, self.background],1))
 
         #self.fake = torch.cat(self.fake, dim=0)
+        while(len(self.frame_buffer)<4):
+            f = self.fake.detach()
+            self.frame_buffer.append(f)
+        
+        f = self.fake.detach()
+        self.frame_buffer.append(f)
+        
+        self.frame_buffer.pop(0)
+        
+        
+        assert(len(self.frame_buffer)==4)
+
+        for f in self.frame_buffer:
+            print(f.shape)
+
+        frames = torch.cat(self.frame_buffer, 1)
+        
+        self.final = self.inpainter2(frames)
 
 
-        self.fake = torch.where(mask, self.background, self.fake)
 
-        return self.fake
+        self.final = torch.where(mask, self.background, self.final)
+
+        return self.final
 
 if __name__ == '__main__':
     opt = Options()
     compose_model = Inpainter(opt)
 
-    img_array_render = np.asarray(Image.open('3d_fitting/inpainter/0082_render.jpg'))/255
-    img_array_crop = np.asarray(Image.open('3d_fitting/inpainter/0082_crop.jpg'))/255
+    img_array_render = np.asarray(Image.open('media/frame_digital_combine_gt/train/0000_render.jpg'))/255
+    img_array_crop = np.asarray(Image.open('media/frame_digital_combine_gt/train/0000_crop.jpg'))/255
 
-
-
-    landmark = pkl.load(open('3d_fitting/inpainter/0082_lms_proj.pkl','rb'))[0]
+    landmark = pkl.load(open('media/frame_digital_combine_gt/train/0000_lms_proj.pkl','rb'))[0]
     lmk_index = [2,3,4,5,6,7,8,9,10,11,12,13,14,29]
-
 
     landmark_select = landmark[lmk_index]
 

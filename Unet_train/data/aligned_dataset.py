@@ -115,12 +115,7 @@ class Aligneddataset(BaseDataset):
 
 
         ID = self.ids[index]
-        #################################
-        ####### apply augmentation ######
-        #################################
 
-
-        #################################
 
         return {'TARGET': TARGET, 'rendered': render,'ID':ID,'mask':mask}
 

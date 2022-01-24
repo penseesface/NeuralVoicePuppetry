@@ -84,11 +84,35 @@ class Options():
         # self.cuthead = False       
         
         
-        self.model_path = 'checkpoints/19th_exp_audio_combine_256_aug2_fit/20_inpainter.pth'
+        
+                
+        # #single
+        # self.model_path = 'checkpoints/19th_exp_audio_combine_256_aug2_fit/30_inpainter.pth'
+        # self.IMG_size = 256
+        # self.ouput = 'media/5th_0121_19audio_kpop'
+        # self.target_path = 'media/frame_avata_farm_gt_fit_650/train'
+        # self.src_expression = 'media/expression_0118_kpop.pkl'
+        # self.background_v = 'media/src_farm_long.mp4'
+        # self.bbox = [ 621,13,1314,706]
+        # self.FPS = 30
+        # self.mvg_lamda = 0.3
+        # self.src_exp_lamda = 0.5
+        # self.cuthead = False   
+            
+        # self.trans_dth = 0.05
+        # self.angle_dth = 0.015
+        # self.smth_scale = 50
+        
+        
+        
+        
+        #double
+        self.model_path1 = 'checkpoints/20th_exp_audio_double/15_inpainter.pth'
+        self.model_path2 = 'checkpoints/20th_exp_audio_double/15_inpainter2.pth'
         self.IMG_size = 256
-        self.ouput = 'media/5nd_farm_2_avata_256_audio_aug2_0119_epoch20'
+        self.ouput = 'media/6nd_0121double_19audio_kpop'
         self.target_path = 'media/frame_avata_farm_gt_fit_650/train'
-        self.src_expression = 'media/expression_0106_30fps.pkl'
+        self.src_expression = 'media/expression_0118_kpop.pkl'
         self.background_v = 'media/src_farm_long.mp4'
         self.bbox = [ 621,13,1314,706]
         self.FPS = 30
@@ -99,3 +123,7 @@ class Options():
         self.trans_dth = 0.05
         self.angle_dth = 0.015
         self.smth_scale = 50
+        
+        
+        
+        

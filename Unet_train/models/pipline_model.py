@@ -1,4 +1,5 @@
 import os
+from queue import Queue
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
@@ -29,7 +30,17 @@ def define_Inpainter(renderer, n_feature, ngf, norm='batch', use_dropout=False, 
     net = None
     norm_layer = networks.get_norm_layer(norm_type=norm)
     N_OUT = 3
-    #renderer=='UNET_5_level'
+    renderer=='UNET_5_level'
+    net = UNET.UnetRenderer(renderer, n_feature, N_OUT, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
+
+    return networks.init_net(net, init_type, init_gain, gpu_ids)
+
+def define_Inpainter2(renderer, n_feature, ngf, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[]):
+    net = None
+    norm_layer = networks.get_norm_layer(norm_type=norm)
+    N_OUT = 3
+    renderer=='UNET_5_level'
+    
     net = UNET.UnetRenderer(renderer, n_feature, N_OUT, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
 
     return networks.init_net(net, init_type, init_gain, gpu_ids)
@@ -61,24 +72,29 @@ class piplinemodel(BaseModel):
         self.trainRenderer = not opt.fix_renderer
 
         # specify the training losses you want to print out. The program will call base_model.get_current_losses
-        self.loss_names = ['G_total', 'G_L1_Rendering', 'G_VGG_Rendering', 'G_GAN']
+        self.loss_names = ['G_total', 'G_L1_Rendering', 'G_VGG_Rendering', 'G_GAN','G_L1_Rendering2','G_L1_Rendering3']
 
         # specify the images you want to save/display. The program will call base_model.get_current_visuals
         if self.isTrain:
-            self.visual_names = ['rendered', 'fake', 'target']
+            self.visual_names = ['rendered', 'fake', 'target','final']
         else:
-            self.visual_names = ['rendered', 'fake', 'target']
+            self.visual_names = ['rendered', 'fake', 'target','final']
 
         # specify the models you want to save to the disk. The program will call base_model.save_networks and base_model.load_networks
         if self.isTrain:
-            self.model_names = [ 'inpainter' ,'netD']
+            self.model_names = [ 'inpainter' ,'inpainter2' ]
         else:  # during test time, only load Gs
-            self.model_names = ['inpainter']
+            self.model_names = ['inpainter','inpainter2' ]
 
 
         # load/define networks
-        self.inpainter = define_Inpainter(opt.rendererType, 6, opt.ngf, opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
+        
+        self.inpainter= define_Inpainter(opt.rendererType, 6, opt.ngf, opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
+        
+        self.inpainter2 = define_Inpainter2(opt.rendererType,12, opt.ngf, opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
+
+        self.frame_buffer = []
 
         # optimizer
         self.loss_G_GAN = 0.0
@@ -101,8 +117,15 @@ class piplinemodel(BaseModel):
             # initialize optimizers
             self.optimizers = []
 
-            self.optimizer_inpainter = torch.optim.Adam(self.inpainter.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizers.append(self.optimizer_inpainter)
+            self.optimizer_inpainter1 = torch.optim.Adam(self.inpainter.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizers.append(self.optimizer_inpainter1)
+
+
+
+            self.optimizer_inpainter2 = torch.optim.Adam(self.inpainter2.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizers.append(self.optimizer_inpainter2)
+
+
 
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_D)
@@ -127,18 +150,42 @@ class piplinemodel(BaseModel):
         self.rendered = torch.where(mask, torch.zeros_like(self.target), self.rendered)
 
 
-        # result =util.tensor2im(self.background.clone())
-        # rendered =util.tensor2im(self.rendered.clone())
+        self.fake = self.inpainter(torch.cat([self.rendered, self.background], 1))
 
-        # Image.fromarray(result).save(f'media/background/bg.jpg')
-        # Image.fromarray(rendered).save(f'media/background/rendered.jpg')
 
-        self.fake = self.inpainter(self.rendered, self.background)
 
         #self.fake = torch.cat(self.fake, dim=0)
+        while(len(self.frame_buffer)<4):
+            f = self.fake.detach()
+            self.frame_buffer.append(f)
+        
+        f = self.fake.detach()
+        self.frame_buffer.append(f)
+        
+        self.frame_buffer.pop(0)
+        
+        
+        assert(len(self.frame_buffer)==4)
+
+        for f in self.frame_buffer:
+            print(f.shape)
+
+        frames = torch.cat(self.frame_buffer, 1)
+        
+        print(frames.shape)
+
+        self.final = self.inpainter2(frames)
 
 
-        self.fake = torch.where(mask, self.background, self.fake)
+        #print( self.final)
+        #self.final = torch.where(mask, self.background, self.final)
+        
+        # # result =util.tensor2im(self.background.clone())
+        # final =util.tensor2im(self.frame_buffer[0].clone())
+
+        # # Image.fromarray(result).save(f'media/background/bg.jpg')
+        # Image.fromarray(final).save(f'media/background/final.jpg')
+
 
 
     def backward_D(self):
@@ -187,14 +234,25 @@ class piplinemodel(BaseModel):
 
         self.loss_G_L1_Rendering += 10.0 * self.criterionL1(self.fake, self.target)
 
+
+        self.loss_G_L1_Rendering2 = 0.0
+
+        self.loss_G_L1_Rendering2 += 10.0 * self.criterionL1(self.final, self.target)
+
+
+        self.loss_G_L1_Rendering3 = 0.0
+
+        self.loss_G_L1_Rendering3 += 2.0 * self.criterionL1(self.final, self.frame_buffer[-1])
+
+
+
         self.loss_G_VGG_Rendering = 0.0
 
         #if self.opt.lossType == 'VGG':
             
-        self.loss_G_VGG_Rendering += 10.0 * self.vggloss(self.fake, self.target)
+        self.loss_G_VGG_Rendering += 10.0 * self.vggloss(self.final, self.target)
 
-        self.loss_G_total = self.loss_G_L1_Rendering + self.loss_G_VGG_Rendering + self.loss_G_GAN
-
+        self.loss_G_total = self.loss_G_L1_Rendering + self.loss_G_VGG_Rendering + self.loss_G_GAN + self.loss_G_L1_Rendering2 + self.loss_G_L1_Rendering3
         self.loss_G_total.backward()
 
     def optimize_parameters(self, epoch_iter):
@@ -215,9 +273,11 @@ class piplinemodel(BaseModel):
 
         # update Generator
         self.set_requires_grad(self.netD, False)
-        self.optimizer_inpainter.zero_grad()
+        self.optimizer_inpainter1.zero_grad()
+        self.optimizer_inpainter2.zero_grad()
 
         self.backward_G(epoch_iter)
 
-        self.optimizer_inpainter.step()
+        self.optimizer_inpainter1.step()
+        self.optimizer_inpainter2.step()
 

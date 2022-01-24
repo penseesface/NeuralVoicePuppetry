@@ -309,9 +309,9 @@ class UnetRenderer(nn.Module):
 
         self.model = unet_block
 
-    def forward(self,features):
-        #unet_input = torch.cat([features, background], 1)
-        return self.model(features)
+    def forward(self,features,background):
+        unet_input = torch.cat([features, background], 1)
+        return self.model(unet_input)
 
 
 if __name__ == '__main__':

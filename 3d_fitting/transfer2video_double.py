@@ -10,10 +10,10 @@ import os
 import torch
 import pickle
 import core.utils as utils
-
+import torch.nn as nn
 import matplotlib.pyplot as plt
 from PIL import Image
-from inpainter import Inpainter
+from inpainter import Inpainter_double
 from inpainter.options import Options
 import torchvision.transforms as transforms
 import time
@@ -50,7 +50,24 @@ def process_img(bg, fg, V_writer, bbox,args):
     # cv2.destroyAllWindows()
     V_writer.write(_bg)
 
+def resample(exp,src_rate,target_rate):
+    L,D = exp.shape
+    
+    xp = np.arange(0,L/src_rate,1/src_rate).reshape(-1)
+    
+    x = np.arange(0,xp[-1],1/target_rate).reshape(-1)
 
+
+    out = np.zeros([x.shape[0],D], dtype=np.float32)
+    
+
+    if xp.shape[0] != exp[:,0].shape[0]:
+        xp = xp[:-1]
+    for i in range(D):
+        buff = np.interp(x,xp,exp[:,i])
+        
+        out[:,i] = buff
+    return out
 
 if __name__=='__main__':
 
@@ -69,7 +86,7 @@ if __name__=='__main__':
     #pytorch render
     recon_model = get_recon_model(model=args.recon_model, device=device, batch_size=1, img_size=opt.IMG_size)
 
-    inpainter =Inpainter.Inpainter(opt,opt.model_path)
+    inpainter =Inpainter_double.Inpainter(opt, weight_inpainter1 = opt.model_path1, weight_inpainter2 = opt.model_path2)
 
     out_folder = opt.ouput
 
@@ -77,11 +94,22 @@ if __name__=='__main__':
         os.mkdir(out_folder)
     if not os.path.exists(f'{out_folder}/debug'):
         os.mkdir(f'{out_folder}/debug')
+        
+    if not os.path.exists(f'{out_folder}/processed'):
+        os.mkdir(f'{out_folder}/processed')
+
+    if not os.path.exists(f'{out_folder}/frames'):
+        os.mkdir(f'{out_folder}/frames')
 
     target = opt.target_path
 
     if opt.src_expression.endswith('.pkl'):
         src_expression = pickle.load(open(f'{opt.src_expression}','br'))
+
+        print("expression",src_expression.shape)
+        src_expression = src_expression
+        #src_expression = resample(src_expression,60,30)
+
     else:
         src_expression = [x for x in os.listdir(opt.src_expression) if x.endswith('coeffs.pkl')]
         src_expression = sorted(src_expression)
@@ -90,14 +118,16 @@ if __name__=='__main__':
 
     src_size = len(src_expression)
 
-    print(len(src_expression))
+    print('experesion length',len(src_expression))
 
     index_start = 0
-    end_index = int(len(os.listdir(target))/4)
-
+    # end_index = int(len(os.listdir(target))/4)
+    end_index = 1500
+    
     print('target end index',end_index)
 
     target_info =  load_target(index_start,end_index,target)
+
 
     #extract background frames
     background_frames  = {}
@@ -107,11 +137,16 @@ if __name__=='__main__':
         ret,background = cap.read()
         if not ret:
             break
-        if frame_cnt>19:
-            background_frames[f'{frame_cnt-20:04d}']=background
+        
+        if opt.cuthead:
+            if frame_cnt>19:
+                background_frames[f'{frame_cnt-20:04d}']=background
+        else:
+                background_frames[f'{frame_cnt:04d}']=background
+            
         frame_cnt+=1
 
-        if frame_cnt > 2000:
+        if frame_cnt > end_index:
             break
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -125,23 +160,42 @@ if __name__=='__main__':
     print("frame_width", width)
 
     V_writer = cv2.VideoWriter(f'{out_folder}/videorendered.mp4',fourcc, fps, (width,height))
+    id_coeff, exp_coeff, tex_coeff, angles, gamma, translation = recon_model.split_coeffs(target_info[f'{0:04d}'][0])
+
+    previous_trans = translation
+    previous_angle = angles
+    previous_idcoeff = id_coeff
+    previous_tex_coeff = tex_coeff
+    previous_exp = src_expression[0]
+
+
+    pdist = nn.PairwiseDistance(p=2)
 
     t0 = time.time()
     for i,exp in enumerate(src_expression[:-1]):
 
-        if i > 1000:
+        if i > 1500:
             break
 
         ID = i+index_start
-
         ID = ID%(len(target_info))
-
         target_coeffs = target_info[f'{ID:04d}'][0] 
         
         # render 3D face
         target_img = target_info[f'{ID:04d}'][1] 
         id_coeff, exp_coeff, tex_coeff, angles, gamma, translation = recon_model.split_coeffs(target_coeffs)
-        new_coeffes = recon_model.merge_coeffs( id_coeff.cuda(), torch.Tensor(exp).cuda().view(1,64), tex_coeff.cuda(), angles.cuda(), gamma.cuda(), translation.cuda() )
+        
+        new_translation = opt.mvg_lamda*previous_trans+(1-opt.mvg_lamda)*translation 
+        new_angles = opt.mvg_lamda*previous_angle+(1-opt.mvg_lamda)*angles 
+        new_exp = opt.src_exp_lamda*previous_exp+(1-opt.src_exp_lamda)*exp 
+        
+        if i>0: 
+            previous_trans = new_translation
+            previous_angle = new_angles
+            previous_exp = new_exp
+
+        new_coeffes = recon_model.merge_coeffs( previous_idcoeff.cuda(), torch.Tensor(exp).cuda().view(1,64), tex_coeff.cuda(), new_angles.cuda(), gamma.cuda(), new_translation.cuda() )
+        
         result = recon_model(new_coeffes)
 
         #load landmark
@@ -152,6 +206,9 @@ if __name__=='__main__':
         pts = landmark_select.reshape((-1,1,2))
         pts = np.array(pts,dtype=np.int32)
         mask = cv2.fillPoly(mask,[pts],(255,255,255))
+        kernal = np.ones((3,3),np.uint)
+        mask = cv2.dilate(mask,kernel=kernal,iterations=2)
+        
         mask = transforms.ToTensor()(mask.astype(np.float32))
 
         # norm 
@@ -161,40 +218,62 @@ if __name__=='__main__':
         TARGET = transforms.ToTensor()(img_array_crop.astype(np.float32))
         TARGET = 2.0 * TARGET - 1.0
 
-
-        #rerender crop face
-
-        # print('mask shape',mask.shape)
-        # print('Target shape',TARGET.shape)
-        # print('render shape',render.shape)
         fake = inpainter(TARGET,render,mask)
-        fg = Inpainter.tensor2im(fake.clone())
+        fg = Inpainter_double.tensor2im(fake.clone())
         fg = fg[:,:,::-1]
 
 
         #debug
         _render_copy = ((render.permute(1,2,0)+1)/2*255).cpu().numpy()[:,:,::-1]
         _render_copy = _render_copy.astype(np.uint8)
-        saved = np.ones((opt.IMG_size,opt.IMG_size*2,3),dtype=np.uint8)
+        
+        
+        saved = np.ones((opt.IMG_size,opt.IMG_size*3,3),dtype=np.uint8)
+        
         saved[:,:opt.IMG_size,:] = _render_copy
-        saved[:,opt.IMG_size:,:] = fg
+        saved[:,opt.IMG_size:512,:] = fg
 
+
+
+        mask = mask == 0
+
+
+        intermediate = torch.where(mask, TARGET, render.cpu())
+        intermediate = np.transpose(intermediate.numpy(),[1,2,0])
+        intermediate =      np.array( (intermediate[:,:,::-1] + 1)/2*255, np.uint8)
+        
+        saved[:,512:,:] = intermediate
+        
         cv2.imwrite(f'{out_folder}/debug/{ID:04d}.jpg',saved)
 
-        # print(fg.shape)
-        # cv2.imshow('render',_render_copy) 
-        # cv2.imshow('fg',saved)
+
+        # # save for deflicker
+        # cv2.imwrite(f'{out_folder}/processed/{ID:05d}.jpg',fg)
+        #resize back
+        bg = background_frames[f'{ID:04d}']
+        x1, y1, x2, y2 = opt.bbox
+        # crop = bg[y1:y2, x1:x2]
+        # crop = cv2.resize(crop,(256,256  ))
+        
+        # cv2.imwrite(f'{out_folder}/frames/{ID:05d}.jpg',crop)
+
+        # # print(fg.shape)
+        # cv2.imshow('crop',intermediate) 
+        # #cv2.imshow('fg',fg)
         # cv2.waitKey() 
         # cv2.destroyAllWindows()
 
-        #resize back
-        bg = background_frames[f'{ID:04d}']
+
 
         process_img(bg,fg,V_writer,opt.bbox,args)
+        
         c = i+1
         t1 = time.time()
+        
         # print('time', (t1-t0)/c)
         # print('FPS', 1/((t1 - t0)/c))
         
     V_writer.release()
-        
+
+    
+    

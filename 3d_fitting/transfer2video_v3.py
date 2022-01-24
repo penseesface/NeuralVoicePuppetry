@@ -13,7 +13,7 @@ import core.utils as utils
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from PIL import Image
-from inpainter import Inpainter
+from inpainter import Inpainter_single as Inpainter
 from inpainter.options import Options
 import torchvision.transforms as transforms
 import time
@@ -225,7 +225,6 @@ if __name__=='__main__':
         _render_copy = ((render.permute(1,2,0)+1)/2*255).cpu().numpy()[:,:,::-1]
         _render_copy = _render_copy.astype(np.uint8)
         
-        
         saved = np.ones((opt.IMG_size,opt.IMG_size*3,3),dtype=np.uint8)
         
         saved[:,:opt.IMG_size,:] = _render_copy
@@ -247,15 +246,15 @@ if __name__=='__main__':
         cv2.imwrite(f'{out_folder}/debug/{ID:04d}.jpg',saved)
 
 
-        # save for deflicker
-        cv2.imwrite(f'{out_folder}/processed/{ID:05d}.jpg',fg)
+        # # save for deflicker
+        #cv2.imwrite(f'{out_folder}/processed/{ID:05d}.jpg',fg)
         #resize back
         bg = background_frames[f'{ID:04d}']
         x1, y1, x2, y2 = opt.bbox
         crop = bg[y1:y2, x1:x2]
         crop = cv2.resize(crop,(256,256  ))
         
-        cv2.imwrite(f'{out_folder}/frames/{ID:05d}.jpg',crop)
+        # cv2.imwrite(f'{out_folder}/frames/{ID:05d}.jpg',crop)
 
         # # print(fg.shape)
         # cv2.imshow('crop',intermediate) 
